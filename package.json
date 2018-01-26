@@ -1,0 +1,34 @@
+{
+  "name": "dk-opt-core",
+  "version": "1.0.0",
+  "description": "OPT core",
+  "main": "app.ts",
+  "scripts": {
+    "start": "node dist/app.js",
+    "develop": "tsc && concurrently \"tsc -w\" \"nodemon dist/app.js\"",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/potpiejimmy/dk-opt-core.git"
+  },
+  "keywords": [
+    "OPT"
+  ],
+  "author": "Thorsten Liese",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/potpiejimmy/dk-opt-core/issues"
+  },
+  "homepage": "https://github.com/potpiejimmy/dk-opt-core#readme",
+  "dependencies": {
+    "express": "^4.16.2",
+    "iso_8583": "^2.4.8",
+    "nocache": "^2.0.0",
+    "typescript": "^2.6.2"
+  },
+  "devDependencies": {
+    "concurrently": "^3.5.1",
+    "nodemon": "^1.14.11"
+  }
+}
