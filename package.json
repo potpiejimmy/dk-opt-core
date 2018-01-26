@@ -24,6 +24,7 @@
   "dependencies": {
     "express": "^4.16.2",
     "iso_8583": "^2.4.8",
+    "jsonfile": "^4.0.0",
     "nocache": "^2.0.0",
     "typescript": "^2.6.2"
   },
