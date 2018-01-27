@@ -3,6 +3,12 @@ import * as Hsm from '../business/hsm';
 
 const HsmRouter: Router = Router();
 
+HsmRouter.get("/", function (request: Request, response: Response, next: NextFunction) {
+    Hsm.readAll()
+    .then(res => response.send(res))
+    .catch(err => next(err));
+});
+
 HsmRouter.get("/:id", function (request: Request, response: Response, next: NextFunction) {
     Hsm.readValue(request.params.id)
     .then(res => response.send(res))

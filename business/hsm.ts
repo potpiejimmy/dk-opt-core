@@ -7,7 +7,11 @@ function readHSM(): any {
 }
 
 function writeHSM(data: any) {
-    jsonfile.writeFileSync(HSM_FILE, data);
+    jsonfile.writeFileSync(HSM_FILE, data, {spaces: 4});
+}
+
+export function readAll(): Promise<string> {
+    return Promise.resolve(readHSM());
 }
 
 export function readValue(id: string): Promise<string> {
@@ -15,6 +19,8 @@ export function readValue(id: string): Promise<string> {
 }
 
 export function writeValue(id: string, val: string): Promise<any> {
-    writeHSM(readHSM()[id] = val);
-    return Promise.resolve('success');
+    let data = readHSM();
+    data[id] = val;
+    writeHSM(data);
+    return Promise.resolve('"success"');
 }
