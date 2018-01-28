@@ -1,4 +1,12 @@
 {
-    "zkano": "12345678901234",
-    "ozp": "20180126121303"
+    "admin": {
+        "status": "betriebsbereit",
+        "stdldis": [
+            "XXXXVV00000BXXXXXXJJJJMMTTJJJJMMTT"
+        ],
+        "zkano": "12345678901234",
+        "ozp": "20180126121300",
+        "terminalid": "12345679",
+        "betreiberblz": "50050000"
+    }
 }
