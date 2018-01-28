@@ -5,7 +5,7 @@ const OptRouter: Router = Router();
 
 OptRouter.get("/init", function (request: Request, response: Response, next: NextFunction) {
     Opt.optInitialize()
-    .then(res => response.send("<pre>"+res+"</pre>"))
+    .then(res => response.json(res))
     .catch(err => next(err));
 });
 
