@@ -1,7 +1,7 @@
 import * as jsonfile from 'jsonfile';
 import * as crypto from 'crypto';
 
-const HSM_FILE: string = 'hsm.json';
+const CONFIG_FILE: string = 'config.json';
 
 /* start public interface */
 
@@ -52,10 +52,10 @@ export function exportLDIs(): any {
 /* end public interface */
 
 function readHSM(): any {
-    return jsonfile.readFileSync(HSM_FILE);
+    return jsonfile.readFileSync(CONFIG_FILE);
 }
 
 function writeHSM(data: any) {
-    jsonfile.writeFileSync(HSM_FILE, data, {spaces: 4});
+    jsonfile.writeFileSync(CONFIG_FILE, data, {spaces: 4});
 }
 

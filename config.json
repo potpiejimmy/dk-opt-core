@@ -7,7 +7,9 @@
         "zkano": "12345678901234567890123456789012",
         "ozp": "20180126121300",
         "terminalid": "12345679",
-        "betreiberblz": "50050000"
+        "betreiberblz": "50050000",
+        "ps_host": "localhost",
+        "ps_port": 5678
     },
     "keystore": {
         "K_INIT": {
