@@ -4,9 +4,15 @@
         "stdldis": [
             "XXXXVV00000BXXXXXXJJJJMMTTJJJJMMTT"
         ],
-        "zkano": "12345678901234",
+        "zkano": "12345678901234567890123456789012",
         "ozp": "20180126121300",
         "terminalid": "12345679",
         "betreiberblz": "50050000"
+    },
+    "keystore": {
+        "K_INIT": {
+            "GN": 1,
+            "KV": 1
+        }
     }
 }

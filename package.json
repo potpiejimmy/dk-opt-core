@@ -23,13 +23,14 @@
   "homepage": "https://github.com/potpiejimmy/dk-opt-core#readme",
   "dependencies": {
     "express": "^4.16.2",
-    "iso_8583": "^2.4.8",
     "jsonfile": "^4.0.0",
+    "jspos": "0.0.11-RELEASE",
     "moment": "^2.20.1",
     "nocache": "^2.0.0",
     "typescript": "^2.6.2"
   },
   "devDependencies": {
+    "@types/node": "^9.4.0",
     "concurrently": "^3.5.1",
     "nodemon": "^1.14.11"
   }

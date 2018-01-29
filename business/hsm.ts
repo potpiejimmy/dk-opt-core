@@ -1,4 +1,5 @@
 import * as jsonfile from 'jsonfile';
+import * as crypto from 'crypto';
 
 const HSM_FILE: string = 'hsm.json';
 
@@ -19,12 +20,17 @@ export function writeAdminValue(id: string, val: string): Promise<any> {
     return Promise.resolve('"success"');
 }
 
+export function readKeyProperties(id: string): Promise<any> {
+    return Promise.resolve(readHSM().keystore[id]);
+}
+
 export function importSessionKey(id: string, rnd: string) {
 
 }
 
-export function createSessionKey(id: string): any {
-    // create and store session key, return the RND value
+export function createSessionKey(id: string): Promise<string> {
+    // create and store session key, return the RND value as hex string
+    return Promise.resolve(crypto.randomBytes(16).toString('hex'));
 }
 
 export function createMAC(msg: any): any {
