@@ -9,4 +9,10 @@ OptRouter.get("/init", function (request: Request, response: Response, next: Nex
     .catch(err => next(err));
 });
 
+OptRouter.get("/preinit", function (request: Request, response: Response, next: NextFunction) {
+    Opt.optPreInitialize()
+    .then(res => response.json(res))
+    .catch(err => next(err));
+});
+
 export { OptRouter };

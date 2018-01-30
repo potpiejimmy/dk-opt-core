@@ -18,5 +18,5 @@ OPT_ISO_MSG_FORMAT[42] = new IFB_BINARY(8, "Betreiber-BLZ");
 OPT_ISO_MSG_FORMAT[53] = new IFB_BINARY(8, "Sicherheitsverfahren");
 OPT_ISO_MSG_FORMAT[57] = new IFB_BINARY(37, "Verschlüsselungsparameter");
 OPT_ISO_MSG_FORMAT[61] = new IFB_BINARY(10, "Online-Zeitpunkt");
-OPT_ISO_MSG_FORMAT[62] = new IFB_BINARY(19, "Daten");
+OPT_ISO_MSG_FORMAT[62] = new IFB_BINARY(0, "Daten");
 OPT_ISO_MSG_FORMAT[64] = new IFB_BINARY(8, "MAC");

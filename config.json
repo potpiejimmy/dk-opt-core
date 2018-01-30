@@ -4,15 +4,20 @@
         "stdldis": [
             "XXXXVV00000BXXXXXXJJJJMMTTJJJJMMTT"
         ],
+        "herstellerid": "F1F2F3F4F5F6",
+        "herstellerserialno": "F1F2F3F4F5F6F7F8F9F0",
         "zkano": "12345678901234567890123456789012",
         "ozp": "20180126121300",
         "terminalid": "12345679",
         "betreiberblz": "50050000",
         "ps_host": "localhost",
-        "ps_port": 5678
+        "ps_port": "1301"
     },
     "keystore": {
-        "K_INIT": {
+        "CV_MES": "00004D000341000000004D0003210000",
+        "CV_MAC": "00004D000341000000004D0003210000",
+        "CV_IMP": "00427D000341000000427D0003210000",
+        "K_UR": {
             "GN": 1,
             "KV": 1
         }
