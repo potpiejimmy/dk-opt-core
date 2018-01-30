@@ -13,7 +13,7 @@ export function optInitialize(): Promise<any> {
     return optProcess("K_INIT", buildOptInitMsg);
 }
 
-function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any) => number[]): Promise<any> {
+function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any) => any): Promise<any> {
 
     let traceNo = 1;
     let isoPacker = new ISOBasePackager();
@@ -21,11 +21,16 @@ function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, tra
     isoPacker.setFieldPackager(OPT_ISO_MSG_FORMAT);
 
     return Hsm.readAdminValues().then(config => 
-        Hsm.createSessionKey("KS_MES", key_id).then(rnd_mes =>
-        Hsm.createSessionKey("KS_MAC", key_id).then(rnd_mac =>
+        Hsm.createSessionKey("MES", key_id).then(ks_mes =>
+        Hsm.createSessionKey("MAC", key_id).then(ks_mac =>
         Hsm.readKeyProperties(key_id).then(k_ur => {
 
-            let msg = msgBuilder(isoPacker, traceNo, config, rnd_mes, rnd_mac, k_ur)
+            let isoMsg = msgBuilder(isoPacker, traceNo, config, ks_mes.rnd, ks_mac.rnd, k_ur);
+            isoMsg.setField(64, "0000000000000000"); /* set empty BMP64 before calculating MAC */
+            let msg = isoMsg.pack();
+            isoMsg.setField(64, Hsm.createMAC(ks_mes, msg.slice(0, msg.length-8)));
+            msg = isoMsg.pack();
+
             let msgWithBSFTHeader = Util.bsftHeader(msg.length + 8).concat(msg);
             console.log(msg.length);
             console.log(ISOUtil.hexString(msgWithBSFTHeader));
@@ -35,7 +40,7 @@ function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, tra
     ))));
 }
 
-function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): number[] {
+function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
     
     /* Personalisierungsanfrage */
     let isoMsg = isoPacker.createISOMsg();
@@ -45,12 +50,10 @@ function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config:
     isoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.herstellerid + config.herstellerserialno); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), Hersteller-ID (6), Hersteller-Seriennummer(10) */
     isoPacker.getFieldPackager(62).setLength(22);
     isoMsg.setField(62, "F0F1F9000000" + rnd_mac); /* Daten, Nummer logischer Teil-HSM (3) + RND_MAC (16) bei Vor-Initialisierung */
-    isoMsg.setField(64, "1234567890123456"); /* MAC, 8 Bytes */
-    
-    return isoMsg.pack();
+    return isoMsg;
 }
 
-function buildOptInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): number[] {
+function buildOptInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
     
     /* Personalisierungsanfrage */
     let isoMsg = isoPacker.createISOMsg();
@@ -61,9 +64,7 @@ function buildOptInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: an
     isoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.zkano); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), ZKA-No.(16) */
     isoPacker.getFieldPackager(62).setLength(19);
     isoMsg.setField(62, "F0F1F6" + rnd_mac); /* Daten, RND_MAC bei Personalisierungsanfrage (16) */
-    isoMsg.setField(64, "1234567890123456"); /* MAC, 8 Bytes */
-    
-    return isoMsg.pack();
+    return isoMsg;
 }
 
 function setOptCommonFields(isoMsg: any, traceNo: number, config: any) {
