@@ -29,13 +29,15 @@ export function importSessionKey(id: string, rnd: string) {
 }
 
 export function createSessionKey(id: string, base_key_id: string): Promise<any> {
-    // id must be one of MES, MAC, IMP, ENC
-    // key_id must be one of K_UR, K_INIT, K_PERS (one of the key IDs in the config.json keystore)
+    // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be created.
+    // base_key_id must be one of K_UR, K_INIT, K_PERS (one of the key IDs in the config.json keystore)
 
     // session key KS is derived from key K_PERS_T like this:
     // KS = PA(d*(KPERS_T XOR CV1|CV1)(RND1)|d*(KPERS_T XOR CV2|CV2)(RND2)). 
     // create and store session key, return the RND value as hex string
     let hsm = readHSM();
+
+    if (!hsm.keystore[base_key_id]) return Promise.reject("Sorry, cannot find key " + base_key_id + " in HSM keystore.");
 
     let rnd = crypto.randomBytes(16);
     let cv: Buffer = Buffer.from(hsm.keystore['CV_'+id], 'hex');

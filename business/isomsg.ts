@@ -13,6 +13,7 @@ OPT_ISO_MSG_FORMAT[11] = new IFB_BINARY(3, "Tracenummer");
 OPT_ISO_MSG_FORMAT[12] = new IFB_BINARY(3, "Uhrzeit");
 OPT_ISO_MSG_FORMAT[13] = new IFB_BINARY(2, "Datum");
 OPT_ISO_MSG_FORMAT[33] = new IFB_BINARY(5, "ID zwischengeschalteter Rechner / PS-ID");
+OPT_ISO_MSG_FORMAT[39] = new IFB_BINARY(1, "Antwortcode");
 OPT_ISO_MSG_FORMAT[41] = new IFB_BINARY(4, "Terminal-ID");
 OPT_ISO_MSG_FORMAT[42] = new IFB_BINARY(8, "Betreiber-BLZ");
 OPT_ISO_MSG_FORMAT[53] = new IFB_BINARY(8, "Sicherheitsverfahren");

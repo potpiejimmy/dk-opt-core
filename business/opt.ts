@@ -31,15 +31,26 @@ function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, tra
             isoMsg.setField(64, Hsm.createMAC(ks_mes, msg.slice(0, msg.length-8)));
             msg = isoMsg.pack();
 
-            let msgWithBSFTHeader = Util.bsftHeader(msg.length + 8).concat(msg);
+            let msgWithBSFTHeader = Util.bsftHeaderEncode(msg.length + 8).concat(msg);
             console.log("ISO Message Length: " + msg.length);
             console.log(ISOUtil.hexString(msgWithBSFTHeader));
 
             return sendAndReceive(config.ps_host, config.ps_port, Buffer.from(msgWithBSFTHeader)).then(data => {
-                return Promise.resolve({status: "Received " + data.length + " bytes of data."});
-            }).catch(errmsg => Promise.resolve(errmsg));
+                console.log("RECEIVED ISO: " + data.toString('hex'));
+                let isoAnswer = isoPacker.createISOMsg();
+                isoAnswer.unpack(data);
+                let ac = isoAnswer.fields[39].value[0];
+                console.log("MTI:   " + isoAnswer.getMTI());
+                console.log("BMP39: " + ac);
+                if (!ac) {
+                    // Extrahiere ZKA-Nummer
+                    Hsm.writeAdminValue('zkano', Buffer.from(isoAnswer.fields[62].value.slice(6, 22)).toString('hex'));
+                }
+                return Promise.resolve({status: "Der Vorgang war erfolgreich, AC (BMP39) = " + ac});
+            });
         }
-    ))));
+    ))))
+    .catch(err => Promise.resolve({status: ""+err}));
 }
 
 function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
@@ -87,6 +98,7 @@ function sendAndReceive(host: string, port: number, msg: Buffer): Promise<any> {
 
         let psConn = new net.Socket();
         let receiveBuffer = Buffer.alloc(0);
+        let expectingBytes = 0;
 
         psConn.connect(port, host, () => {
             psConn.write(msg);
@@ -95,12 +107,18 @@ function sendAndReceive(host: string, port: number, msg: Buffer): Promise<any> {
         // Add a 'data' event handler for the client socket
         // data is what the server sent to this socket
         psConn.on('data', function(data) {
-            console.log('RECEIVED ' + data.length + ' BYTES: ' + data.toString('hex'));
+            console.log('RECEIVED ' + data.length + ' BYTES.');
             receiveBuffer = Buffer.concat([receiveBuffer, data]);
 
-            if (receiveBuffer.length > 8) { // XXX for testing
-                psConn.destroy();
-                resolve(receiveBuffer);
+            if (receiveBuffer.length >= 8) {
+                // header received
+                if (!expectingBytes) expectingBytes = Util.bsftHeaderDecode(receiveBuffer);
+
+                if (receiveBuffer.length >= expectingBytes) {
+                    // received all data, over and out.
+                    psConn.destroy();
+                    resolve(receiveBuffer.slice(8, expectingBytes));
+                }
             }
         });
 
@@ -113,7 +131,7 @@ function sendAndReceive(host: string, port: number, msg: Buffer): Promise<any> {
         psConn.on('error', function(err) {
             console.log('Error: ' + err);
             psConn.destroy();
-            reject({status: ""+err});
+            reject(err);
         });
     });
 }
