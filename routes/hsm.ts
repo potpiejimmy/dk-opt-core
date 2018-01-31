@@ -21,4 +21,10 @@ HsmRouter.put("/admin/:id", function (request: Request, response: Response, next
     .catch(err => next(err));
 });
 
+HsmRouter.get("/keystore", function (request: Request, response: Response, next: NextFunction) {
+    Hsm.readKeyProperties()
+    .then(res => response.send(res))
+    .catch(err => next(err));
+});
+
 export { HsmRouter };

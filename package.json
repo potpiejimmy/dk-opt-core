@@ -5,7 +5,7 @@
   "main": "app.ts",
   "scripts": {
     "start": "node dist/app.js",
-    "develop": "tsc && concurrently \"tsc -w\" \"nodemon dist/app.js\"",
+    "develop": "tsc && concurrently \"tsc -w\" \"nodemon --ignore config.json dist/app.js\"",
     "build": "tsc"
   },
   "repository": {

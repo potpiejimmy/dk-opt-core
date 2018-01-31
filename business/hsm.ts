@@ -20,8 +20,8 @@ export function writeAdminValue(id: string, val: string): Promise<any> {
     return Promise.resolve('"success"');
 }
 
-export function readKeyProperties(id: string): Promise<any> {
-    return Promise.resolve(readHSM().keystore[id]);
+export function readKeyProperties(): Promise<any> {
+    return Promise.resolve(readHSM().keystore);
 }
 
 export function importSessionKey(id: string, rnd: string) {

@@ -23,9 +23,10 @@ function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, tra
     return Hsm.readAdminValues().then(config => 
         Hsm.createSessionKey("MES", key_id).then(ks_mes =>
         Hsm.createSessionKey("MAC", key_id).then(ks_mac =>
-        Hsm.readKeyProperties(key_id).then(k_ur => {
+        Hsm.readKeyProperties().then(keystore => {
 
-            let isoMsg = msgBuilder(isoPacker, traceNo, config, ks_mes.rnd, ks_mac.rnd, k_ur);
+            let keyprops = keystore[key_id];
+            let isoMsg = msgBuilder(isoPacker, traceNo, config, ks_mes.rnd, ks_mac.rnd, keyprops);
             isoMsg.setField(64, "0000000000000000"); /* set empty BMP64 before calculating MAC */
             let msg = isoMsg.pack();
             isoMsg.setField(64, Hsm.createMAC(ks_mes, msg.slice(0, msg.length-8)));
@@ -40,8 +41,14 @@ function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, tra
                 let isoAnswer = isoPacker.createISOMsg();
                 isoAnswer.unpack(data);
                 let ac = isoAnswer.fields[39].value[0];
+                let mac = Buffer.from(isoAnswer.fields[64].value).toString('hex');
                 console.log("MTI:   " + isoAnswer.getMTI());
                 console.log("BMP39: " + ac);
+                // verify MAC:
+                if (Hsm.createMAC(ks_mes, data.slice(0, data.length-8)) != mac) {
+                    console.log("MAC invalid.")
+                    throw "MAC is invalid";
+                }
                 if (!ac) {
                     // Extrahiere ZKA-Nummer
                     Hsm.writeAdminValue('zkano', Buffer.from(isoAnswer.fields[62].value.slice(6, 22)).toString('hex'));
