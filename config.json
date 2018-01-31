@@ -4,9 +4,9 @@
         "stdldis": [
             "XXXXVV00000BXXXXXXJJJJMMTTJJJJMMTT"
         ],
-        "herstellerid": "F1F2F3F4F5F6",
-        "herstellerserialno": "F1F2F3F4F5F6F7F8F9F0",
-        "zkano": "12345678901234567890123456789012",
+        "herstellerid": "C8F0F0F0F1F6",
+        "herstellerserialno": "F1F0F0F8F1F5F4F7F1F1",
+        "zkano": "F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0",
         "ozp": "20180126121300",
         "terminalid": "12345679",
         "betreiberblz": "50050000",
@@ -21,7 +21,7 @@
         "K_UR": {
             "GN": 1,
             "KV": 1,
-            "keydata": "8CF2FE610D853170254ABAA74F83621C"
+            "keydata": "3773512AEA80858CFD1A6E1C34686DF7"
         }
     }
 }

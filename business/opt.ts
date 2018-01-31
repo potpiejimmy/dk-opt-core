@@ -32,10 +32,12 @@ function optProcess(key_id: string, msgBuilder: (isoPacker: ISOBasePackager, tra
             msg = isoMsg.pack();
 
             let msgWithBSFTHeader = Util.bsftHeader(msg.length + 8).concat(msg);
-            console.log(msg.length);
+            console.log("ISO Message Length: " + msg.length);
             console.log(ISOUtil.hexString(msgWithBSFTHeader));
 
-            return sendAndReceive(config.ps_host, config.ps_port, Buffer.from(msgWithBSFTHeader));
+            return sendAndReceive(config.ps_host, config.ps_port, Buffer.from(msgWithBSFTHeader)).then(data => {
+                return Promise.resolve({status: "Received " + data.length + " bytes of data."});
+            }).catch(errmsg => Promise.resolve(errmsg));
         }
     ))));
 }
@@ -82,7 +84,10 @@ function setOptCommonFields(isoMsg: any, traceNo: number, config: any) {
 function sendAndReceive(host: string, port: number, msg: Buffer): Promise<any> {
 
     return new Promise((resolve, reject) => {
+
         let psConn = new net.Socket();
+        let receiveBuffer = Buffer.alloc(0);
+
         psConn.connect(port, host, () => {
             psConn.write(msg);
         });
@@ -90,9 +95,13 @@ function sendAndReceive(host: string, port: number, msg: Buffer): Promise<any> {
         // Add a 'data' event handler for the client socket
         // data is what the server sent to this socket
         psConn.on('data', function(data) {
-            console.log('DATA: ' + data);
-            // Close the client socket completely
-            psConn.destroy();
+            console.log('RECEIVED ' + data.length + ' BYTES: ' + data.toString('hex'));
+            receiveBuffer = Buffer.concat([receiveBuffer, data]);
+
+            if (receiveBuffer.length > 8) { // XXX for testing
+                psConn.destroy();
+                resolve(receiveBuffer);
+            }
         });
 
         // Add a 'close' event handler for the client socket
@@ -103,7 +112,8 @@ function sendAndReceive(host: string, port: number, msg: Buffer): Promise<any> {
         // Add a 'close' event handler for the client socket
         psConn.on('error', function(err) {
             console.log('Error: ' + err);
-            resolve({status: ""+err});
+            psConn.destroy();
+            reject({status: ""+err});
         });
     });
 }
