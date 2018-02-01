@@ -29,6 +29,24 @@ export function bsftHeaderDecode(buf: Buffer): number {
     return len;
 }
 
+export function asyncLoopImpl(array: any[], iter: (element: any, next: () => void) => void, complete: () => void, index: number = 0) {
+    if (index >= array.length) complete();
+    else iter(array[index], () => asyncLoopImpl(array, iter, complete, ++index));
+}
+
+export function asyncLoop(array: any[], iter: (element: any, next: () => void) => void): Promise<any> {
+    return new Promise((resolve, reject) => asyncLoopImpl(array, iter, () => resolve()));
+}
+
+export function asyncWhileImpl(condition: () => boolean, iter: (next: () => void) => void, complete: () => void) {
+    if (!condition()) complete();
+    else iter(() => asyncWhileImpl(condition, iter, complete));
+}
+
+export function asyncWhile(condition: () => boolean, iter: (next: () => void) => void): Promise<any> {
+    return new Promise((resolve, reject) => asyncWhileImpl(condition, iter, () => resolve()));
+}
+
 const e2a = [
     0,  1,  2,  3,156,  9,134,127,151,141,142, 11, 12, 13, 14, 15,
    16, 17, 18, 19,157,133,  8,135, 24, 25,146,143, 28, 29, 30, 31,

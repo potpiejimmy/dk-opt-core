@@ -76,7 +76,7 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
     return Hsm.importSessionKey("MES", base_key_id, rnd_mes).then(() => {
 
         // verify MAC:
-        if (Hsm.createMAC("MES", [...data.slice(0, data.length-8)]) != mac) {
+        if (!Hsm.verifyMAC("MES", [...data.slice(0, data.length-8)], mac)) {
             console.log("MAC invalid.")
             throw "Message MAC is invalid";
         }
@@ -85,45 +85,60 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
             return Promise.reject("AC (BMP39) = " + ac);
         }
 
+        let akz = isoAnswer.fields[3].value[0];
+
         // Extrahiere Daten aus BMP62:
         let bmp62 = isoAnswer.fields[62].value;
-        let rnd_imp = Buffer.from(bmp62.slice(22,38)).toString('hex');
-        // TODO: check BMP62 MAC
 
-        // import KS_IMP
-        return Hsm.importSessionKey("IMP", base_key_id, rnd_imp).then(() => {
+        // TODO: check BMP62 MAC using KS_MAC
+
+        let rnd_mac, rnd_imp, rnd_enc: string;
+        let index = 3; // skip length field
+        let groupNum: number;
+
+        let result = Promise.resolve();
+
+        if (akz == 0x96) { // Vor-Initialisieurng
+            index += 3; // skip Nummer des logischen Teil-HSM
+            let zkano = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
+            rnd_imp = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
+            groupNum = 1; // only one implicit group in Vor-Initialisierungsantwort
+            result = result.then(()=>Hsm.writeAdminValue('zkano', zkano)); // write ZKA number to config
+        } else {
+            rnd_mac = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
+            let rndKennung = bmp62[index++];
+            if (rndKennung & 0x1) // RND_IMP eingestellt?
+                rnd_imp = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
+            if (rndKennung & 0x2) // RND_ENC eingestellt?
+                rnd_enc = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
+            groupNum = bmp62[index++];
+        }
+
+        // import KS_IMP if available
+        if (rnd_imp) result = result.then(()=>Hsm.importSessionKey("IMP", base_key_id, rnd_imp));
+        // import KS_ENC if available
+        if (rnd_enc) result = result.then(()=>Hsm.importSessionKey("ENC", base_key_id, rnd_enc));
+
+        let groupsImported = 0;
+
+        return result.then(() => Util.asyncWhile(() => groupsImported < groupNum, next => {
+
+            // calculate length of current group
+            let groupLen = 4; // start with group id + ldi number fields = 4
+            let ldiNum = bmp62[index + 3]; // Anzahl der LDIs
+            for (let i=0; i<ldiNum; i++) {
+                groupLen += 2; // Nummer LDI + Algorithmus-Code
+                groupLen += 1 + bmp62[index + groupLen]; // Laenge der LDI-Daten
+            }
             
-                let isPreInit = isoAnswer.fields[3].value[0] == 0x96;
-                let isInit = isoAnswer.fields[3].value[0] == 0x98;
-
-                let response: Promise<any>; 
-                if (isPreInit) response = handlePreInitResponse(bmp62);
-                else if (isInit) response = handleInitResponse(bmp62);
-                else response = handlePersResponse(bmp62);
-                return response.then(() => {return {status: "Der Vorgang war erfolgreich."}});
+            return Hsm.importLDIGroup(akz, Buffer.from(bmp62.slice(index,index+=groupLen))).then(()=> {
+                groupsImported++;
+                next();
+            });
+        })).then(() => {
+            return {status: "Der Vorgang war erfolgreich."};
         });
     });
-}
-
-function handlePreInitResponse(bmp62: Array<any>): Promise<any> {
-    let zkano = Buffer.from(bmp62.slice(6, 22)).toString('hex');
-    // TODO Read LDI blocks
-    let encK = Buffer.from(bmp62.slice(70,86)).toString('hex');
-    let cv = Buffer.from(bmp62.slice(86,102)).toString('hex');
-    return Hsm.writeAdminValue('zkano', zkano).then(() =>
-           Hsm.deriveKey("K_INIT", encK, cv));
-}
-
-function handleInitResponse(bmp62: Array<any>): Promise<any> {
-    // TODO Read LDI blocks
-    let encK = Buffer.from(bmp62.slice(69,85)).toString('hex');
-    let cv = Buffer.from(bmp62.slice(85,101)).toString('hex');
-    return Hsm.deriveKey("K_PERS", encK, cv);
-}
-
-function handlePersResponse(bmp62: Array<any>): Promise<any> {
-    // TODO
-    return Promise.resolve();
 }
 
 function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {

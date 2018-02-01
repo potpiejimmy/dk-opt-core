@@ -144,15 +144,39 @@ export function createMAC(id: string, msg: Array<any>): any {
     return mac;
 }
 
-export function verifyMAC(msg: any, mac: any): any {
-    // verify mac for given message using KS_MES
+export function verifyMAC(id: string, msg: Array<any>, mac: string): boolean {
+    // verify mac for given message
+    return createMAC(id, msg) == mac;
 }
 
-export function importLDIs(data: any) {
+export function importLDIGroup(akz: number, data: Buffer): Promise<any> {
 
+    let result = Promise.resolve();
+
+    let index = 0;
+    console.log("Gruppen-ID:  " + data.slice(index,index+=3).toString('hex'));
+    let ldiNum = data[index++];
+    console.log("Anzahl LDIs: " + ldiNum);
+    while (ldiNum > 0) {
+        ldiNum--;
+        let ldiNo = data[index++];
+        console.log("Nummer des LDI:   " + ldiNo);
+        console.log("Algorithmus-Code: " + data[index++]);
+        let ldiLen = data[index++];
+        console.log("Länge des LDI:    " + ldiLen);
+        let ldiData = data.slice(index,index+=ldiLen);
+        console.log("Daten:            " + ldiData.toString('hex'));
+
+        if ((akz == 0x96 || akz == 0x98) && ldiNo == 0xFF) { // K_INIT / K_PERS
+            let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
+            let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
+            result = result.then(()=>deriveKey(akz == 0x96 ? "K_INIT" : "K_PERS", encK, cv));
+        }
+    }
+    return result;
 }
 
-export function exportLDIs(): any {
+export function exportLDIGroup(): any {
 
 }
 
