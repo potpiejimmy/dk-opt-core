@@ -26,20 +26,19 @@ export function readKeyProperties(): Promise<any> {
 
 export function importSessionKey(id: string, base_key_id: string, rnd: string): Promise<any> {
     // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be imported/re-created.
-    return deriveKeyImpl("KS_"+id, base_key_id, rnd, null).then(s => null);
+    // base_key_id is one of K_UR/K_INIT/K_PERS
+    deriveKeyImpl("KS_"+id, base_key_id, rnd, null, {});
+    return Promise.resolve();
 }
 
 export function createSessionKey(id: string, base_key_id: string): Promise<string> {
     // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be created.
-    return deriveKeyImpl("KS_"+id, base_key_id, null, null);
+    // base_key_id is one of K_UR/K_INIT/K_PERS
+    let rnd = deriveKeyImpl("KS_"+id, base_key_id, null, null, {});
+    return Promise.resolve(rnd);
 }
 
-export function deriveKey(id: string, encIn: string, cvIn: string): Promise<any> {
-    // deriving a key from encIn using KS_IMP is like building or importing a session key from rnd using a base key
-    return deriveKeyImpl(id, "KS_IMP", encIn, cvIn).then(s => null);
-}
-
-function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: string): Promise<string> {
+function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: string, keyProperties: any): string {
     // base_key_id must be one of K_UR, K_INIT, K_PERS, KS_IMP (one of the key IDs in the config.json keystore)
     // stores id into keystore and returns the RND_xxx as hex string
 
@@ -48,7 +47,7 @@ function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: str
     // create and store session key, return the RND value as hex string
     let hsm = readHSM();
 
-    if (!hsm.keystore[base_key_id]) return Promise.reject("Sorry, cannot find key " + base_key_id + " in HSM keystore.");
+    if (!hsm.keystore[base_key_id]) throw "Sorry, cannot find key " + base_key_id + " in HSM keystore.";
 
     let rnd: Buffer;
 
@@ -76,16 +75,14 @@ function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: str
     console.log("RND_"+id+": " +rndstring);
     console.log(id+": " +ksstring);
 
-    let sessionKeyData = {
-        rnd: rndstring,
-        keydata: ksstring
-    };
+    // set keydata
+    keyProperties.keydata = ksstring;
 
     // Write to HSM
-    hsm.keystore[id] = sessionKeyData;
+    hsm.keystore[id] = keyProperties;
     writeHSM(hsm);
 
-    return Promise.resolve(rndstring);
+    return rndstring;
 }
 
 function adjustParity(buf: Buffer): void {
@@ -149,31 +146,47 @@ export function verifyMAC(id: string, msg: Array<any>, mac: string): boolean {
     return createMAC(id, msg) == mac;
 }
 
-export function importLDIGroup(akz: number, data: Buffer): Promise<any> {
-
-    let result = Promise.resolve();
+export function importLDIGroup(data: Buffer): Promise<any> {
 
     let index = 0;
-    console.log("Gruppen-ID:  " + data.slice(index,index+=3).toString('hex'));
+    let groupId = data.slice(index,index+=2).toString('hex');
+    let groupVersion = data[index++];
+    console.log("Gruppen-ID:  " + groupId + ", Version " + groupVersion);
     let ldiNum = data[index++];
     console.log("Anzahl LDIs: " + ldiNum);
+
+    let keyProperties = {};
+    let keyName = "K_unknown";
+
     while (ldiNum > 0) {
         ldiNum--;
-        let ldiNo = data[index++];
-        console.log("Nummer des LDI:   " + ldiNo);
+        let ldi = data[index++];
+        console.log("Nummer des LDI:   " + ldi);
         console.log("Algorithmus-Code: " + data[index++]);
         let ldiLen = data[index++];
         console.log("Länge des LDI:    " + ldiLen);
         let ldiData = data.slice(index,index+=ldiLen);
         console.log("Daten:            " + ldiData.toString('hex'));
 
-        if ((akz == 0x96 || akz == 0x98) && ldiNo == 0xFF) { // K_INIT / K_PERS
-            let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
-            let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
-            result = result.then(()=>deriveKey(akz == 0x96 ? "K_INIT" : "K_PERS", encK, cv));
+        if (groupId == 'FFFF') {
+            // Daten der Vor-Initialisierung und Initialisierung
+            if (ldi == 0xFD) {
+                // Schluesselkennung 49=K_INIT, 50=K_PERS
+                if (ldiData[0] == 0x49) keyName = "K_INIT";
+                else if (ldiData[0] == 0x50) keyName = "K_PERS";
+            } else if (ldi == 0xFE) {
+                // GN und KV
+                keyProperties['GN'] = ldiData[2]; // Schluesselgenerationsnummer
+                keyProperties['KV'] = ldiData[3]; // Schluesselversion
+            } else if (ldi == 0xFF) {
+                // K_INIT / K_PERS
+                let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
+                let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
+                deriveKeyImpl(keyName, "KS_IMP", encK, cv, keyProperties);
+            }
         }
     }
-    return result;
+    return Promise.resolve();
 }
 
 export function exportLDIGroup(): any {

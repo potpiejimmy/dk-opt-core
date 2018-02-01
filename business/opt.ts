@@ -98,13 +98,15 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
 
         let result = Promise.resolve();
 
-        if (akz == 0x96) { // Vor-Initialisieurng
+        if (akz == 0x96) {
+            // Vor-Initialisieurng
             index += 3; // skip Nummer des logischen Teil-HSM
             let zkano = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
             rnd_imp = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
-            groupNum = 1; // only one implicit group in Vor-Initialisierungsantwort
+            groupNum = 1; // Nur eine implizite Gruppe in Vor-Initialisierungsantwort
             result = result.then(()=>Hsm.writeAdminValue('zkano', zkano)); // write ZKA number to config
         } else {
+            // Initialisierung oder Personalisierung
             rnd_mac = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
             let rndKennung = bmp62[index++];
             if (rndKennung & 0x1) // RND_IMP eingestellt?
@@ -131,7 +133,7 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
                 groupLen += 1 + bmp62[index + groupLen]; // Laenge der LDI-Daten
             }
             
-            return Hsm.importLDIGroup(akz, Buffer.from(bmp62.slice(index,index+=groupLen))).then(()=> {
+            return Hsm.importLDIGroup(Buffer.from(bmp62.slice(index,index+=groupLen))).then(()=> {
                 groupsImported++;
                 next();
             });
