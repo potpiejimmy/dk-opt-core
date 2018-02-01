@@ -24,13 +24,24 @@ export function readKeyProperties(): Promise<any> {
     return Promise.resolve(readHSM().keystore);
 }
 
-export function importSessionKey(id: string, rnd: string) {
-
+export function importSessionKey(id: string, base_key_id: string, rnd: string): Promise<any> {
+    // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be imported/re-created.
+    return deriveKeyImpl("KS_"+id, base_key_id, rnd, null).then(s => null);
 }
 
-export function createSessionKey(id: string, base_key_id: string): Promise<any> {
+export function createSessionKey(id: string, base_key_id: string): Promise<string> {
     // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be created.
-    // base_key_id must be one of K_UR, K_INIT, K_PERS (one of the key IDs in the config.json keystore)
+    return deriveKeyImpl("KS_"+id, base_key_id, null, null);
+}
+
+export function deriveKey(id: string, encIn: string, cvIn: string): Promise<any> {
+    // deriving a key from encIn using KS_IMP is like building or importing a session key from rnd using a base key
+    return deriveKeyImpl(id, "KS_IMP", encIn, cvIn).then(s => null);
+}
+
+function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: string): Promise<string> {
+    // base_key_id must be one of K_UR, K_INIT, K_PERS, KS_IMP (one of the key IDs in the config.json keystore)
+    // stores id into keystore and returns the RND_xxx as hex string
 
     // session key KS is derived from key K_PERS_T like this:
     // KS = PA(d*(KPERS_T XOR CV1|CV1)(RND1)|d*(KPERS_T XOR CV2|CV2)(RND2)). 
@@ -39,8 +50,16 @@ export function createSessionKey(id: string, base_key_id: string): Promise<any> 
 
     if (!hsm.keystore[base_key_id]) return Promise.reject("Sorry, cannot find key " + base_key_id + " in HSM keystore.");
 
-    let rnd = crypto.randomBytes(16);
-    let cv: Buffer = Buffer.from(hsm.keystore['CV_'+id], 'hex');
+    let rnd: Buffer;
+
+    if (rndIn) rnd = Buffer.from(rndIn, 'hex'); // re-create key for given RND
+    else rnd = crypto.randomBytes(16); // create a new key from random data
+
+    let cv: Buffer;
+    
+    if (cvIn) cv = Buffer.from(cvIn, 'hex');
+    else cv = Buffer.from(hsm.keystore['CV_'+id.substr(3)], 'hex'); // use fixed CV_xxx
+
     let basekey = Buffer.from(hsm.keystore[base_key_id].keydata, 'hex');
     let enckey: Buffer = Buffer.alloc(16);
 
@@ -55,7 +74,7 @@ export function createSessionKey(id: string, base_key_id: string): Promise<any> 
     let ksstring = result.toString('hex');
     let rndstring = rnd.toString('hex');
     console.log("RND_"+id+": " +rndstring);
-    console.log("KS_"+id+": " +ksstring);
+    console.log(id+": " +ksstring);
 
     let sessionKeyData = {
         rnd: rndstring,
@@ -63,10 +82,10 @@ export function createSessionKey(id: string, base_key_id: string): Promise<any> 
     };
 
     // Write to HSM
-    //hsm.keystore['KS_'+id] = sessionKeyData;
-    //writeHSM(hsm);
+    hsm.keystore[id] = sessionKeyData;
+    writeHSM(hsm);
 
-    return Promise.resolve(sessionKeyData);
+    return Promise.resolve(rndstring);
 }
 
 function adjustParity(buf: Buffer): void {
@@ -97,7 +116,9 @@ function encdecdes(enckey, data, decode: boolean) {
     return Buffer.concat([res, cipher.final()]);
 }
 
-export function createMAC(sessionKey: any, msg: Array<any>): any {
+export function createMAC(id: string, msg: Array<any>): any {
+    // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be used.
+    let sessionKey = readHSM().keystore["KS_"+id];
 
     // Calculate Retail MAC (ISO 9797 Algorithm 3) using left and right part of KS as K and K'
     let k1 = sessionKey.keydata.substr(0,16);
