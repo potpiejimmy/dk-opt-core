@@ -149,9 +149,8 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         // import KS_ENC if available
         if (rnd_enc) result = result.then(()=>Hsm.importSessionKey("ENC", base_key_id, rnd_enc));
 
-        let loopError;
         let bmp62result = [groupNum];
-        return result.then(() => Util.asyncWhile(() => groupNum > 0, next => {
+        return result.then(() => Util.asyncWhile(() => groupNum > 0, () => {
 
             // calculate length of current group
             let groupLen = 4; // start with group id + ldi number fields = 4
@@ -174,19 +173,10 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
                            Hsm.exportStandardLDI(groupIdAndVersion).then(stldiWithMac => {
                         // add to bmp62result
                         bmp62result = bmp62result.concat(stldiWithMac);
-                        next();
                     }));
-                } else {
-                    next();
                 }
-            }).catch(err => {
-                // import error, stop loop
-                groupNum = 0;
-                loopError = err;
-                next();
             });
         })).then(() => {
-            if (loopError) throw loopError;
             if (rnd_mac) {
                 // return the new BMP62 with the MACed standard LDIs of all groups
                 let newLenField = Util.asciiToEbcdic(Util.padNumber(bmp62result.length, 3)); // 3 digits length field in EBCDIC
