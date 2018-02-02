@@ -66,11 +66,21 @@ const e2a = [
    48, 49, 50, 51, 52, 53, 54, 55, 56, 57,250,251,252,253,254,255
   ];
 
-export function ebcdicToAsciiS (hexstring: string): string {
-    return ebcdicToAsciiB(Buffer.from(hexstring, 'hex'));
+export function ebcdicHexToAscii (hexstring: string): string {
+    return ebcdicToAscii(Buffer.from(hexstring, 'hex'));
 }
 
-export function ebcdicToAsciiB (buf: Buffer): string {
+export function ebcdicToAscii (buf: Buffer): string {
     for (let i=0; i<buf.length; i++) buf[i] = e2a[buf[i]];
     return buf.toString();
+}
+
+export function asciiToEbcdic(input: string): Buffer {
+    let result = [];
+    for (let i=0; i<input.length; i++) {
+        for (let j=0; j<e2a.length; j++) {
+            if (e2a[j] == input.charCodeAt(i)) result.push(j);
+        }
+    }
+    return Buffer.from(result);
 }

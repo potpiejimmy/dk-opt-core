@@ -1,9 +1,6 @@
 {
     "admin": {
         "status": "betriebsbereit",
-        "stdldis": [
-            "XXXXVV00000BXXXXXXJJJJMMTTJJJJMMTT"
-        ],
         "herstellerid": "C8F0F0F0F1F6",
         "herstellerserialno": "F1F0F0F8F1F5F4F7F1F1",
         "zkano": "0",
@@ -18,6 +15,8 @@
         "CV_MAC": "00004D000341000000004D0003210000",
         "CV_IMP": "00427D000341000000427D0003210000",
         "CV_ENC": "00007100034100000000710003210000",
+        "STD_LDIS": {
+        },
         "K_UR": {
             "GN": 1,
             "KV": 1,

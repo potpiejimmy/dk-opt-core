@@ -68,7 +68,7 @@ function optProcessConfirm(bmp62result: any): Promise<any> {
 
 function fixResultFieldVariableLength(bmp: number, len_length: number, isoPacker: ISOBasePackager, isoMessage: any, data: Buffer) {
     // fetch length from length field
-    let bmp_len = parseInt(Util.ebcdicToAsciiB(Buffer.from(isoMessage.fields[bmp].value.slice(0,len_length))));
+    let bmp_len = parseInt(Util.ebcdicToAscii(Buffer.from(isoMessage.fields[bmp].value.slice(0,len_length))));
     //console.log("LEN BMP"+bmp + ": " + bmp_len);
     isoPacker.getFieldPackager(bmp).setLength(len_length + bmp_len);
     isoMessage.unpack(data); // re-unpack
@@ -150,6 +150,7 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         if (rnd_enc) result = result.then(()=>Hsm.importSessionKey("ENC", base_key_id, rnd_enc));
 
         let loopError;
+        let bmp62result = [groupNum];
         return result.then(() => Util.asyncWhile(() => groupNum > 0, next => {
 
             // calculate length of current group
@@ -162,7 +163,7 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
             groupLen += 8; // MAC
             
             let groupData = bmp62.slice(index,index+=groupLen);
-            return Hsm.importLDIGroup(Buffer.from(groupData)).then(()=> {
+            return Hsm.importLDIGroup(Buffer.from(groupData)).then(groupIdAndVersion => {
                 // group successfully imported, now replace
                 groupNum--;
                 if (rnd_mac) {
@@ -170,9 +171,9 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
                     // Note that we need to create it here AFTER import because we need to use
                     // the newly created K_PERS on Initialisierung.
                     return Hsm.importSessionKey("MAC", "K_PERS", rnd_mac).then(() => 
-                        Hsm.createMAC("MAC", groupData.slice(0, groupData.length-8)).then(newMac => {
-                        // replace MAC in BMP62 with new MAC
-                        bmp62.splice(index-8, 8, [...Buffer.from(newMac,'hex')]);
+                           Hsm.exportStandardLDI(groupIdAndVersion).then(stldiWithMac => {
+                        // add to bmp62result
+                        bmp62result = bmp62result.concat(stldiWithMac);
                         next();
                     }));
                 } else {
@@ -186,7 +187,13 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
             });
         })).then(() => {
             if (loopError) throw loopError;
-            return rnd_mac ? bmp62 : null; // return the new BMP62 with the new MACs if available
+            if (rnd_mac) {
+                // return the new BMP62 with the MACed standard LDIs of all groups
+                let newLenField = Util.asciiToEbcdic(Util.padNumber(bmp62result.length, 3)); // 3 digits length field in EBCDIC
+                return [...newLenField].concat(bmp62result);
+            } else {
+                return null;
+            }
         });
     }));
 }
