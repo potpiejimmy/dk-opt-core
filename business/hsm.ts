@@ -71,48 +71,55 @@ export function verifyMAC(id: string, msg: Array<any>, mac: string): Promise<boo
     return createMAC(id, msg).then(m =>  m==mac);
 }
 
-export function importLDIGroup(data: Buffer): Promise<any> {
+export function importLDIGroup(data: Buffer): Promise<boolean> {
 
-    let index = 0;
-    let groupId = data.slice(index,index+=2).toString('hex');
-    let groupVersion = data[index++];
-    console.log("Gruppen-ID:  " + groupId + ", Version " + groupVersion);
-    let ldiNum = data[index++];
-    console.log("Anzahl LDIs: " + ldiNum);
+    // first, verify group MAC
+    let groupMac = data.slice(data.length-8, data.length).toString('hex');
+    return verifyMAC("MAC", [...data.slice(0, data.length-8)], groupMac).then(macOk => {
 
-    let keyProperties = {};
-    let keyName = "K_unknown";
+        if (!macOk) throw "Gruppen-MAC ungültig";
 
-    while (ldiNum > 0) {
-        ldiNum--;
-        let ldi = data[index++];
-        console.log("Nummer des LDI:   " + ldi);
-        console.log("Algorithmus-Code: " + data[index++]);
-        let ldiLen = data[index++];
-        console.log("Länge des LDI:    " + ldiLen);
-        let ldiData = data.slice(index,index+=ldiLen);
-        console.log("Daten:            " + ldiData.toString('hex'));
+        let index = 0;
+        let groupId = data.slice(index,index+=2).toString('hex');
+        let groupVersion = data[index++];
+        console.log("Gruppen-ID:  " + groupId + ", Version " + groupVersion);
+        let ldiNum = data[index++];
+        console.log("Anzahl LDIs: " + ldiNum);
 
-        if (groupId.toUpperCase() == 'FFFF') {
-            // Daten der Vor-Initialisierung und Initialisierung
-            if (ldi == 0xFD) {
-                // Schluesselkennung 49=K_INIT, 50=K_PERS
-                if (ldiData[0] == 0x49) keyName = "K_INIT";
-                else if (ldiData[0] == 0x50) keyName = "K_PERS";
-                else keyName = "K_0x"+Buffer.from([ldiData[0]]).toString('hex');
-            } else if (ldi == 0xFE) {
-                // GN und KV
-                keyProperties['GN'] = ldiData[2]; // Schluesselgenerationsnummer
-                keyProperties['KV'] = ldiData[3]; // Schluesselversion
-            } else if (ldi == 0xFF) {
-                // K_INIT / K_PERS
-                let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
-                let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
-                deriveKeyImpl(keyName, "KS_IMP", encK, cv, keyProperties);
+        let keyProperties = {};
+        let keyName = "K_unknown";
+
+        while (ldiNum > 0) {
+            ldiNum--;
+            let ldi = data[index++];
+            console.log("Nummer des LDI:   " + ldi);
+            console.log("Algorithmus-Code: " + data[index++]);
+            let ldiLen = data[index++];
+            console.log("Länge des LDI:    " + ldiLen);
+            let ldiData = data.slice(index,index+=ldiLen);
+            console.log("Daten:            " + ldiData.toString('hex'));
+
+            if (groupId.toUpperCase() == 'FFFF') {
+                // Daten der Vor-Initialisierung und Initialisierung
+                if (ldi == 0xFD) {
+                    // Schluesselkennung 49=K_INIT, 50=K_PERS
+                    if (ldiData[0] == 0x49) keyName = "K_INIT";
+                    else if (ldiData[0] == 0x50) keyName = "K_PERS";
+                    else keyName = "K_0x"+Buffer.from([ldiData[0]]).toString('hex');
+                } else if (ldi == 0xFE) {
+                    // GN und KV
+                    keyProperties['GN'] = ldiData[2]; // Schluesselgenerationsnummer
+                    keyProperties['KV'] = ldiData[3]; // Schluesselversion
+                } else if (ldi == 0xFF) {
+                    // K_INIT / K_PERS
+                    let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
+                    let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
+                    deriveKeyImpl(keyName, "KS_IMP", encK, cv, keyProperties);
+                }
             }
         }
-    }
-    return Promise.resolve();
+        return true; // import ok
+    });
 }
 
 export function exportLDIGroup(): Promise<any> {

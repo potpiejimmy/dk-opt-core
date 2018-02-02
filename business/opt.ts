@@ -45,10 +45,25 @@ function optProcess(base_key_id: string, msgBuilder: (isoPacker: ISOBasePackager
                     console.log("<<< " + data.toString('hex'));
                     return handleISOResponse(base_key_id, isoPacker, data);
                 });
+            }).then(bmp62result => {
+                if (bmp62result) {
+                    // TODO Initialisierungsbestaetigung senden mit neuer BMP62
+                    // bmp62result enthaelt bereist die neuen MACs aus RND'_MAC und K_PERS
+
+                    // TODO
+                    console.log("TODO: SEND NEW BMP62 BACK TO PS: " + Buffer.from(bmp62result).toString('hex'));
+                    return optProcessConfirm(bmp62result);
+                }
             });
         }
     ))))
+    .then(() => { return {status: "Der Vorgang war erfolgreich."};})
     .catch(err => Promise.resolve({status: ""+err}));
+}
+
+function optProcessConfirm(bmp62result: any): Promise<any> {
+    // TODO Quittungsnachricht senden
+    return Promise.resolve();
 }
 
 function fixResultFieldVariableLength(bmp: number, len_length: number, isoPacker: ISOBasePackager, isoMessage: any, data: Buffer) {
@@ -107,8 +122,6 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         // Extrahiere Daten aus BMP62:
         let bmp62 = isoAnswer.fields[62].value;
 
-        // TODO: check BMP62 MAC using KS_MAC
-
         let rnd_mac, rnd_imp, rnd_enc: string;
         let index = 3; // skip length field
         let groupNum: number;
@@ -122,7 +135,7 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
             result = result.then(()=>Hsm.writeAdminValue('zkano', zkano)); // write ZKA number to config
         } else {
             // Initialisierung oder Personalisierung
-            rnd_mac = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
+            rnd_mac = Buffer.from(bmp62.slice(index,index+=16)).toString('hex'); // RND'_MAC
             let rndKennung = bmp62[index++];
             if (rndKennung & 0x1) // RND_IMP eingestellt?
                 rnd_imp = Buffer.from(bmp62.slice(index,index+=16)).toString('hex');
@@ -136,9 +149,8 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         // import KS_ENC if available
         if (rnd_enc) result = result.then(()=>Hsm.importSessionKey("ENC", base_key_id, rnd_enc));
 
-        let groupsImported = 0;
-
-        return result.then(() => Util.asyncWhile(() => groupsImported < groupNum, next => {
+        let loopError;
+        return result.then(() => Util.asyncWhile(() => groupNum > 0, next => {
 
             // calculate length of current group
             let groupLen = 4; // start with group id + ldi number fields = 4
@@ -147,13 +159,34 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
                 groupLen += 2; // Nummer LDI + Algorithmus-Code
                 groupLen += 1 + bmp62[index + groupLen]; // Laenge der LDI-Daten
             }
+            groupLen += 8; // MAC
             
-            return Hsm.importLDIGroup(Buffer.from(bmp62.slice(index,index+=groupLen))).then(()=> {
-                groupsImported++;
+            let groupData = bmp62.slice(index,index+=groupLen);
+            return Hsm.importLDIGroup(Buffer.from(groupData)).then(()=> {
+                // group successfully imported, now replace
+                groupNum--;
+                if (rnd_mac) {
+                    // re-create KS_MAC from RND'_MAC and K_PERS
+                    // Note that we need to create it here AFTER import because we need to use
+                    // the newly created K_PERS on Initialisierung.
+                    return Hsm.importSessionKey("MAC", "K_PERS", rnd_mac).then(() => 
+                        Hsm.createMAC("MAC", groupData.slice(0, groupData.length-8)).then(newMac => {
+                        // replace MAC in BMP62 with new MAC
+                        bmp62.splice(index-8, 8, [...Buffer.from(newMac,'hex')]);
+                        next();
+                    }));
+                } else {
+                    next();
+                }
+            }).catch(err => {
+                // import error, stop loop
+                groupNum = 0;
+                loopError = err;
                 next();
             });
         })).then(() => {
-            return {status: "Der Vorgang war erfolgreich."};
+            if (loopError) throw loopError;
+            return rnd_mac ? bmp62 : null; // return the new BMP62 with the new MACs if available
         });
     }));
 }
