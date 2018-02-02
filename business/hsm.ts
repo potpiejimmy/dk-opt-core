@@ -38,6 +38,99 @@ export function createSessionKey(id: string, base_key_id: string): Promise<strin
     return Promise.resolve(rnd);
 }
 
+export function createMAC(id: string, msg: Array<any>): Promise<string> {
+    // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be used.
+    let sessionKey = readHSM().keystore["KS_"+id];
+
+    // Calculate Retail MAC (ISO 9797 Algorithm 3) using left and right part of KS as K and K'
+    let k1 = sessionKey.keydata.substr(0,16);
+    let k2 = sessionKey.keydata.substr(16,32);
+    console.log("K:  " + k1);
+    console.log("K': " + k2);
+
+    // add padding to input message by adding 0s until length is a multiple of 8
+    while (msg.length % 8 > 0) msg.push(0);
+
+    let hh = Buffer.from([0,0,0,0,0,0,0,0]); // IV
+
+    // Chain and encrypt 8-byte blocks
+    for (let x = 0; x < msg.length / 8; x++) {
+        let block = msg.slice(x*8, (x+1)*8);
+        for (let i=0; i<8; i++) hh[i] ^= block[i];
+        hh = encdecdes(k1, hh, false);
+    }
+
+    let result = encdecdes(k1, encdecdes(k2, hh, true), false);
+    let mac = result.toString('hex');
+    console.log("Retail-CBC-MAC: " + mac);
+    return Promise.resolve(mac);
+}
+
+export function verifyMAC(id: string, msg: Array<any>, mac: string): Promise<boolean> {
+    // verify mac for given message
+    return createMAC(id, msg).then(m =>  m==mac);
+}
+
+export function importLDIGroup(data: Buffer): Promise<any> {
+
+    let index = 0;
+    let groupId = data.slice(index,index+=2).toString('hex');
+    let groupVersion = data[index++];
+    console.log("Gruppen-ID:  " + groupId + ", Version " + groupVersion);
+    let ldiNum = data[index++];
+    console.log("Anzahl LDIs: " + ldiNum);
+
+    let keyProperties = {};
+    let keyName = "K_unknown";
+
+    while (ldiNum > 0) {
+        ldiNum--;
+        let ldi = data[index++];
+        console.log("Nummer des LDI:   " + ldi);
+        console.log("Algorithmus-Code: " + data[index++]);
+        let ldiLen = data[index++];
+        console.log("Länge des LDI:    " + ldiLen);
+        let ldiData = data.slice(index,index+=ldiLen);
+        console.log("Daten:            " + ldiData.toString('hex'));
+
+        if (groupId.toUpperCase() == 'FFFF') {
+            // Daten der Vor-Initialisierung und Initialisierung
+            if (ldi == 0xFD) {
+                // Schluesselkennung 49=K_INIT, 50=K_PERS
+                if (ldiData[0] == 0x49) keyName = "K_INIT";
+                else if (ldiData[0] == 0x50) keyName = "K_PERS";
+                else keyName = "K_0x"+Buffer.from([ldiData[0]]).toString('hex');
+            } else if (ldi == 0xFE) {
+                // GN und KV
+                keyProperties['GN'] = ldiData[2]; // Schluesselgenerationsnummer
+                keyProperties['KV'] = ldiData[3]; // Schluesselversion
+            } else if (ldi == 0xFF) {
+                // K_INIT / K_PERS
+                let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
+                let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
+                deriveKeyImpl(keyName, "KS_IMP", encK, cv, keyProperties);
+            }
+        }
+    }
+    return Promise.resolve();
+}
+
+export function exportLDIGroup(): Promise<any> {
+    // not implemented
+    // TODO should implement this instead of function readKeyProperties
+    return Promise.resolve();
+}
+
+/* end public interface */
+
+function readHSM(): any {
+    return jsonfile.readFileSync(CONFIG_FILE);
+}
+
+function writeHSM(data: any) {
+    jsonfile.writeFileSync(CONFIG_FILE, data, {spaces: 4});
+}
+
 function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: string, keyProperties: any): string {
     // base_key_id must be one of K_UR, K_INIT, K_PERS, KS_IMP (one of the key IDs in the config.json keystore)
     // stores id into keystore and returns the RND_xxx as hex string
@@ -112,94 +205,3 @@ function encdecdes(enckey, data, decode: boolean) {
     let res = cipher.update(data);
     return Buffer.concat([res, cipher.final()]);
 }
-
-export function createMAC(id: string, msg: Array<any>): any {
-    // id must be one of MES, MAC, IMP, ENC to specify which KS_xxx is to be used.
-    let sessionKey = readHSM().keystore["KS_"+id];
-
-    // Calculate Retail MAC (ISO 9797 Algorithm 3) using left and right part of KS as K and K'
-    let k1 = sessionKey.keydata.substr(0,16);
-    let k2 = sessionKey.keydata.substr(16,32);
-    console.log("K:  " + k1);
-    console.log("K': " + k2);
-
-    // add padding to input message by adding 0s until length is a multiple of 8
-    while (msg.length % 8 > 0) msg.push(0);
-
-    let hh = Buffer.from([0,0,0,0,0,0,0,0]); // IV
-
-    // Chain and encrypt 8-byte blocks
-    for (let x = 0; x < msg.length / 8; x++) {
-        let block = msg.slice(x*8, (x+1)*8);
-        for (let i=0; i<8; i++) hh[i] ^= block[i];
-        hh = encdecdes(k1, hh, false);
-    }
-
-    let result = encdecdes(k1, encdecdes(k2, hh, true), false);
-    let mac = result.toString('hex');
-    console.log("Retail-CBC-MAC: " + mac);
-    return mac;
-}
-
-export function verifyMAC(id: string, msg: Array<any>, mac: string): boolean {
-    // verify mac for given message
-    return createMAC(id, msg) == mac;
-}
-
-export function importLDIGroup(data: Buffer): Promise<any> {
-
-    let index = 0;
-    let groupId = data.slice(index,index+=2).toString('hex');
-    let groupVersion = data[index++];
-    console.log("Gruppen-ID:  " + groupId + ", Version " + groupVersion);
-    let ldiNum = data[index++];
-    console.log("Anzahl LDIs: " + ldiNum);
-
-    let keyProperties = {};
-    let keyName = "K_unknown";
-
-    while (ldiNum > 0) {
-        ldiNum--;
-        let ldi = data[index++];
-        console.log("Nummer des LDI:   " + ldi);
-        console.log("Algorithmus-Code: " + data[index++]);
-        let ldiLen = data[index++];
-        console.log("Länge des LDI:    " + ldiLen);
-        let ldiData = data.slice(index,index+=ldiLen);
-        console.log("Daten:            " + ldiData.toString('hex'));
-
-        if (groupId == 'FFFF') {
-            // Daten der Vor-Initialisierung und Initialisierung
-            if (ldi == 0xFD) {
-                // Schluesselkennung 49=K_INIT, 50=K_PERS
-                if (ldiData[0] == 0x49) keyName = "K_INIT";
-                else if (ldiData[0] == 0x50) keyName = "K_PERS";
-            } else if (ldi == 0xFE) {
-                // GN und KV
-                keyProperties['GN'] = ldiData[2]; // Schluesselgenerationsnummer
-                keyProperties['KV'] = ldiData[3]; // Schluesselversion
-            } else if (ldi == 0xFF) {
-                // K_INIT / K_PERS
-                let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
-                let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
-                deriveKeyImpl(keyName, "KS_IMP", encK, cv, keyProperties);
-            }
-        }
-    }
-    return Promise.resolve();
-}
-
-export function exportLDIGroup(): any {
-
-}
-
-/* end public interface */
-
-function readHSM(): any {
-    return jsonfile.readFileSync(CONFIG_FILE);
-}
-
-function writeHSM(data: any) {
-    jsonfile.writeFileSync(CONFIG_FILE, data, {spaces: 4});
-}
-

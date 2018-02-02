@@ -1,4 +1,4 @@
-import { ISOBasePackager, ISOUtil, ISOMsg } from 'jspos';
+import { ISOBasePackager, ISOMsg } from 'jspos';
 import { OPT_ISO_MSG_FORMAT } from './isomsg';
 import * as moment from 'moment';
 import * as net from 'net';
@@ -33,15 +33,18 @@ function optProcess(base_key_id: string, msgBuilder: (isoPacker: ISOBasePackager
             let isoMsg = msgBuilder(isoPacker, traceNo, config, rnd_mes, rnd_mac, keyprops);
             isoMsg.setField(64, "0000000000000000"); /* set empty BMP64 before calculating MAC */
             let msg = isoMsg.pack();
-            isoMsg.setField(64, Hsm.createMAC("MES", msg.slice(0, msg.length-8)));
-            msg = isoMsg.pack();
 
-            let msgWithBSFTHeader = Util.bsftHeaderEncode(msg.length + 8).concat(msg);
-            console.log(">>> " + ISOUtil.hexString(msgWithBSFTHeader));
+            return Hsm.createMAC("MES", msg.slice(0, msg.length-8)).then(mac => {
+                isoMsg.setField(64, mac);
+                msg = isoMsg.pack();
 
-            return sendAndReceive(config.ps_host, config.ps_port, Buffer.from(msgWithBSFTHeader)).then(data => {
-                console.log("<<< " + data.toString('hex'));
-                return handleISOResponse(base_key_id, isoPacker, data);
+                let msgWithBSFTHeader = Util.bsftHeaderEncode(msg.length + 8).concat(msg);
+                console.log(">>> " + Buffer.from(msgWithBSFTHeader).toString('hex'));
+
+                return sendAndReceive(config.ps_host, config.ps_port, Buffer.from(msgWithBSFTHeader)).then(data => {
+                    console.log("<<< " + data.toString('hex'));
+                    return handleISOResponse(base_key_id, isoPacker, data);
+                });
             });
         }
     ))))
@@ -72,15 +75,29 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
     console.log("MTI:   " + isoAnswer.getMTI());
     console.log("BMP39: " + ac);
 
+    // TODO:
+    // Generell:
+    // Ueberpruefe Abwicklungskennzeichen,  Nachrichtentyp, und  Trace-Nummer
+    // Bei Initialisierung zusaetzlich:
+    // Pruefe ZKA-Nummer
+
     // import KS_MES' for response message using RND_MES from BMP57 response
-    return Hsm.importSessionKey("MES", base_key_id, rnd_mes).then(() => {
+    return Hsm.importSessionKey("MES", base_key_id, rnd_mes).then(() =>
+           Hsm.verifyMAC("MES", [...data.slice(0, data.length-8)], mac).then(macOkay => {
 
         // verify MAC:
-        if (!Hsm.verifyMAC("MES", [...data.slice(0, data.length-8)], mac)) {
+        if (!macOkay) {
             console.log("MAC invalid.")
             throw "Message MAC is invalid";
         }
         console.log("Message MAC is valid, continue.");
+
+        let result = Promise.resolve();
+
+        // OZP entnehmen und speichern
+        let ozp = isoAnswer.fields[61].value.slice(3,10);
+        result = result.then(() => Hsm.writeAdminValue("ozp", Buffer.from(ozp).toString('hex')));
+
         if (ac) {
             return Promise.reject("AC (BMP39) = " + ac);
         }
@@ -95,8 +112,6 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         let rnd_mac, rnd_imp, rnd_enc: string;
         let index = 3; // skip length field
         let groupNum: number;
-
-        let result = Promise.resolve();
 
         if (akz == 0x96) {
             // Vor-Initialisieurng
@@ -140,7 +155,7 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         })).then(() => {
             return {status: "Der Vorgang war erfolgreich."};
         });
-    });
+    }));
 }
 
 function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
