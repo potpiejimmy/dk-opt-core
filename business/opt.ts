@@ -47,10 +47,8 @@ function optProcess(base_key_id: string, msgBuilder: (isoPacker: ISOBasePackager
                 });
             }).then(bmp62result => {
                 if (bmp62result) {
-                    // TODO Initialisierungsbestaetigung senden mit neuer BMP62
-                    // bmp62result enthaelt bereist die neuen MACs aus RND'_MAC und K_PERS
-
-                    // TODO
+                    // TODO Quittungsnachricht senden mit neuer BMP62
+                    // bmp62result enthaelt bereits die neue BMP62 mit MACs aus RND'_MAC und K_PERS
                     console.log("TODO: SEND NEW BMP62 BACK TO PS: " + Buffer.from(bmp62result).toString('hex'));
                     return optProcessConfirm(bmp62result);
                 }
