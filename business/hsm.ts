@@ -201,8 +201,7 @@ function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: str
 }
 
 function adjustParity(buf: Buffer): void {
-   for(let i = 0; i < buf.length; i++)
-   {
+   for(let i = 0; i < buf.length; i++) {
       let even: boolean = true;
       for(let j = 0; j < 8; j++)
          if (buf[i] & (1 << j)) even = !even;
