@@ -107,6 +107,9 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         }
         console.log("Message MAC is valid, continue.");
 
+        // Quittungsbestaetigung, MAC valid: Nothing to do
+        if (Buffer.from(isoAnswer.getMTI()).toString('hex') == "8912") return Promise.resolve(null);
+
         let result = Promise.resolve();
 
         // OZP entnehmen und speichern
@@ -114,6 +117,7 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
         result = result.then(() => Hsm.writeAdminValue("ozp", Buffer.from(ozp).toString('hex')));
 
         if (ac) {
+            // TODO: handle ACs
             return Promise.reject("AC (BMP39) = " + ac);
         }
 
