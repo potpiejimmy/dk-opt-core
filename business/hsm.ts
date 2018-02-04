@@ -83,6 +83,7 @@ export function importLDIGroup(data: Buffer): Promise<string> {
         let groupIdAndVersion = data.slice(index,index+=3).toString('hex').toUpperCase();
         console.log("Gruppen-ID und Version:  " + groupIdAndVersion);
         let ldiNum = data[index++];
+        if (!ldiNum) ldiNum = 256;
         console.log("Anzahl LDIs: " + ldiNum);
 
         let keyProperties = {};

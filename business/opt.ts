@@ -34,25 +34,10 @@ function optProcess(base_key_id: string, msgBuilder: (isoPacker: ISOBasePackager
             isoMsg.setField(64, "0000000000000000"); /* set empty BMP64 before calculating MAC */
             let msg = isoMsg.pack();
 
-            return Hsm.createMAC("MES", msg.slice(0, msg.length-8)).then(mac => {
-                isoMsg.setField(64, mac);
-                msg = isoMsg.pack();
-
-                let msgWithBSFTHeader = Util.bsftHeaderEncode(msg.length + 8).concat(msg);
-                console.log(">>> " + Buffer.from(msgWithBSFTHeader).toString('hex'));
-
-                return sendAndReceive(config.ps_host, config.ps_port, Buffer.from(msgWithBSFTHeader)).then(data => {
-                    console.log("<<< " + data.toString('hex'));
-                    return handleISOResponse(base_key_id, isoPacker, data);
-                });
-            }).then(bmp62result => {
+            return sendAndReceive(msg, isoMsg, config, base_key_id, isoPacker).then(bmp62result => {
                 if (bmp62result) {
-                    // TODO Initialisierungsbestaetigung senden mit neuer BMP62
-                    // bmp62result enthaelt bereist die neuen MACs aus RND'_MAC und K_PERS
-
-                    // TODO
-                    console.log("TODO: SEND NEW BMP62 BACK TO PS: " + Buffer.from(bmp62result).toString('hex'));
-                    return optProcessConfirm(bmp62result);
+                    // bmp62result enthaelt bereits die neue BMP62 mit MACs aus RND'_MAC und K_PERS
+                    return optProcessConfirm(isoMsg, bmp62result, isoPacker);
                 }
             });
         }
@@ -61,9 +46,45 @@ function optProcess(base_key_id: string, msgBuilder: (isoPacker: ISOBasePackager
     .catch(err => Promise.resolve({status: ""+err}));
 }
 
-function optProcessConfirm(bmp62result: any): Promise<any> {
-    // TODO Quittungsnachricht senden
-    return Promise.resolve();
+function optProcessConfirm(reqIsoMsg: any, bmp62result: any, isoPacker: ISOBasePackager): Promise<any> {
+    // Die Quittungsnachricht ist wie die Anfragenachricht aufgebaut (reqIsoMsg)
+    // Nur MTI und BMP 57, 61 und 62 sind neu zu setzen
+    // Die Message-MAC und die Werte in BMP57 beziehen sich immer
+    // bereits auf K_PERS, auch bei der Initialisierung
+    let key_id = "K_PERS";
+    return Hsm.readAdminValues().then(config =>  // aktuellen Online-Zeitpunkt neu lesen
+        Hsm.createSessionKey("MES", key_id).then(rnd_mes => // neuen KS_MES generieren
+        Hsm.readKeyProperties().then(keystore => {
+
+            let key = keystore[key_id];
+
+            // Felder in Anfragenachricht (reqIsoMsg) neu setzen
+            reqIsoMsg.setMTI("8902"); /* MSGTYPE 8902 Quittung */
+            reqIsoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.zkano); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), ZKA-No.(16) */
+            reqIsoMsg.setField(61, "F0F0F7" + config.ozp); /* Lg 007: Onlinezeitpunkt(7) */
+            reqIsoMsg.getFieldPackager(62).setLength(bmp62result.length);
+            reqIsoMsg.setField(62, Buffer.from(bmp62result).toString('hex'));
+            let msg = reqIsoMsg.pack();
+
+            return sendAndReceive(msg, reqIsoMsg, config, key_id, isoPacker);
+        }
+    )));
+}
+
+function sendAndReceive(msg: Array<any>, isoMsg: any, config: any, base_key_id: string, isoPacker: ISOBasePackager): Promise<any> {
+    // Set message MAC before sending out
+    return Hsm.createMAC("MES", msg.slice(0, msg.length-8)).then(mac => {
+        isoMsg.setField(64, mac);
+        msg = isoMsg.pack();
+
+        let msgWithBSFTHeader = Util.bsftHeaderEncode(msg.length + 8).concat(msg);
+        console.log(">>> " + Buffer.from(msgWithBSFTHeader).toString('hex'));
+
+        return sendAndReceiveImpl(config.ps_host, config.ps_port, Buffer.from(msgWithBSFTHeader)).then(data => {
+            console.log("<<< " + data.toString('hex'));
+            return handleISOResponse(base_key_id, isoPacker, data);
+        });
+    });
 }
 
 function fixResultFieldVariableLength(bmp: number, len_length: number, isoPacker: ISOBasePackager, isoMessage: any, data: Buffer) {
@@ -221,7 +242,7 @@ function buildOptInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: an
 
 function buildOptPersMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
     
-    /* Personalisierungsanfrage */
+    /* Personalisierungsanfrage (wie Initialisierungsanfrage, bis auf AKZ) */
     let isoMsg = buildOptInitMsg(isoPacker, traceNo, config, rnd_mes, rnd_mac, key);
     isoMsg.setField(3, "999999"); /* AKZ     98xxxx Initialisierung, 99xxxx Personalisierung, xxxx = max. unterst. Nachrichtenlaenge */
     return isoMsg;
@@ -239,7 +260,7 @@ function setOptCommonFields(isoMsg: any, traceNo: number, config: any) {
     isoMsg.setField(61, "F0F0F7" + config.ozp); /* Lg 007: Onlinezeitpunkt(7) */
 }
 
-function sendAndReceive(host: string, port: number, msg: Buffer): Promise<any> {
+function sendAndReceiveImpl(host: string, port: number, msg: Buffer): Promise<any> {
 
     return new Promise((resolve, reject) => {
 
