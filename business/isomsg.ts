@@ -1,3 +1,11 @@
+/**
+ * (c) dk-opt-core - Online-Personalisierung von Terminals
+ * February 4, 2018
+ * 
+ * A TypeScript based implementation of OPT
+ * 
+ * @author thorsten.liese@dieboldnixdorf.com
+ */
 import { packer } from 'jspos';
  
 let { IFB_NUMERIC, IFB_BITMAP, IFB_LLNUM, IFB_LLLNUM, IF_CHAR, IFB_LLCHAR, IFB_LLLCHAR, IFB_BINARY, IFB_LLBINARY, IFB_LLLBINARY, IFB_AMOUNT } = packer;

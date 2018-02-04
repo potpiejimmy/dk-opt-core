@@ -1,3 +1,11 @@
+/**
+ * (c) dk-opt-core - Online-Personalisierung von Terminals
+ * February 4, 2018
+ * 
+ * A TypeScript based implementation of OPT
+ * 
+ * @author thorsten.liese@dieboldnixdorf.com
+ */
 
 export function padNumber(num: number, digits: number): string {
     return (""+(Math.pow(10, digits)+num)).substr(1);

@@ -1,3 +1,11 @@
+/**
+ * (c) dk-opt-core - Online-Personalisierung von Terminals
+ * February 4, 2018
+ * 
+ * A TypeScript based implementation of OPT
+ * 
+ * @author thorsten.liese@dieboldnixdorf.com
+ */
 import { ISOBasePackager, ISOMsg } from 'jspos';
 import { OPT_ISO_MSG_FORMAT } from './isomsg';
 import * as moment from 'moment';

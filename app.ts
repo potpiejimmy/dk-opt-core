@@ -1,3 +1,11 @@
+/**
+ * (c) dk-opt-core - Online-Personalisierung von Terminals
+ * February 4, 2018
+ * 
+ * A TypeScript based implementation of OPT
+ * 
+ * @author thorsten.liese@dieboldnixdorf.com
+ */
 import * as express from 'express';
 import { json } from 'body-parser';
 import * as nocache from 'nocache';
