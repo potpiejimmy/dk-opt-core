@@ -15,7 +15,7 @@ Nach Start von _dk_opt_core_ können die drei OPT-Phasen über HTTP GET /preint,
 
 Eine grafische Oberfläche zur Ansteuerung aller Operationen ist im Repository _dk_opt_ui_ verfügbar.
 
-Alle Konfigurationen können in der Datei _config.json_ vorgenommen werden. Einige Werte sind auch in der Benutzeroberfläche konfigurierbar. Die Konfiguration ist mit Werten für Hersteller-ID, Hersteller-Seriennummer und K_UR so voreingestellt, dass eine Ausführung gegen den Personalisierungsstellen-Simulator PSSIM.EXE erfolgreich durchgeführt werden kann.
+Alle Konfigurationen können in der Datei _config.json_ vorgenommen werden. Einige Werte sind auch in der Benutzeroberfläche konfigurierbar. Die Konfiguration ist mit Werten für Hersteller-ID, Hersteller-Seriennummer und K<sub>UR_T</sub> so voreingestellt, dass eine Ausführung gegen den Personalisierungsstellen-Simulator PSSIM.EXE erfolgreich durchgeführt werden kann.
 
 ## Installation
 
