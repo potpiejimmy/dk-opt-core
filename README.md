@@ -15,6 +15,8 @@ Nach Start von _dk_opt_core_ können die drei OPT-Phasen über HTTP GET /preint,
 
 Eine grafische Oberfläche zur Ansteuerung aller Operationen ist unter [_dk_opt_ui_](https://github.com/potpiejimmy/dk-opt-ui) verfügbar.
 
+Alle Konfigurationen können in der Datei _config.json_ vorgenommen werden. Einige Werte sind auch in der Benutzeroberfläche konfigurierbar. Die Konfiguration ist mit Werten für Hersteller-ID, Hersteller-Seriennummer und K_UR so voreingestellt, dass eine Ausführung gegen den Personalisierungsstellen-Simulator PSSIM.EXE erfolgreich durchgeführt werden kann.
+
 ## Installation
 
     npm install
@@ -37,6 +39,6 @@ Siehe [_dk_opt_ui_](https://github.com/potpiejimmy/dk-opt-ui)
 ## To Do
 
 1. Chaining-Support
-2. Quittungsnachricht, Tracenummern + genaue Abläufe gem. Kap. 7 OPT-Spec
+2. Tracenummern / genaue Abläufe gem. Kap. 7 OPT-Spec, AC-Handling
 3. Dechiffrierung von Nicht-Schlüssel-LDI-Daten mit KS_ENC
 4. Außerbetriebnahme
