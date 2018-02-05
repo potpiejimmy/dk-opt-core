@@ -70,7 +70,7 @@ function optProcessConfirm(reqIsoMsg: any, bmp62result: any, isoPacker: ISOBaseP
             reqIsoMsg.setMTI("8902"); /* MSGTYPE 8902 Quittung */
             reqIsoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.zkano); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), ZKA-No.(16) */
             reqIsoMsg.setField(61, "F0F0F7" + config.ozp); /* Lg 007: Onlinezeitpunkt(7) */
-            reqIsoMsg.getFieldPackager(62).setLength(bmp62result.length);
+            isoPacker.getFieldPackager(62).setLength(bmp62result.length);
             reqIsoMsg.setField(62, Buffer.from(bmp62result).toString('hex'));
             let msg = reqIsoMsg.pack();
 
