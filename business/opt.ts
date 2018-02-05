@@ -199,10 +199,10 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
                 // group successfully imported, now replace
                 groupNum--;
                 if (rnd_mac) {
-                    // re-create KS_MAC from RND'_MAC and K_PERS
+                    // create KS'_MAC from RND'_MAC and K_PERS
                     // Note that we need to create it here AFTER import because we need to use
                     // the newly created K_PERS on Initialisierung.
-                    return Hsm.importSessionKey("MAC", "K_PERS", rnd_mac).then(() => 
+                    return Hsm.importSessionKey("MAC'", "K_PERS", rnd_mac).then(() => 
                            Hsm.exportStandardLDI(groupIdAndVersion).then(stldiWithMac => {
                         // add to bmp62result
                         bmp62result = bmp62result.concat(stldiWithMac);

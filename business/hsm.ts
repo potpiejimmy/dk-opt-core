@@ -52,7 +52,7 @@ export function createMAC(id: string, msg: Array<any>): Promise<string> {
 
     // Calculate Retail MAC (ISO 9797 Algorithm 3) using left and right part of KS as K and K'
     let k1 = sessionKey.keydata.substr(0,16);
-    let k2 = sessionKey.keydata.substr(16,32);
+    let k2 = sessionKey.keydata.substr(16,16);
     console.log("K:  " + k1);
     console.log("K': " + k2);
 
@@ -140,7 +140,7 @@ export function exportStandardLDI(groupIdAndVersion: string): Promise<Array<any>
     let stdldidata = readHSM().keystore.STD_LDIS[groupIdAndVersion];
     let stdldiComplete = Buffer.concat([Buffer.from(groupIdAndVersion,'hex'),Buffer.from(stdldidata, 'hex')]) ;
     // add MAC:
-    return createMAC("MAC", [...stdldiComplete]).then(mac => [...stdldiComplete, ...Buffer.from(mac, 'hex')])
+    return createMAC("MAC'", [...stdldiComplete]).then(mac => [...stdldiComplete, ...Buffer.from(mac, 'hex')])
 }
 
 /* end public interface */
@@ -172,7 +172,7 @@ function deriveKeyImpl(id: string, base_key_id: string, rndIn: string, cvIn: str
     let cv: Buffer;
     
     if (cvIn) cv = Buffer.from(cvIn, 'hex');
-    else cv = Buffer.from(hsm.keystore['CV_'+id.substr(3)], 'hex'); // use fixed CV_xxx
+    else cv = Buffer.from(hsm.keystore['CV_'+id.substr(3,3)], 'hex'); // use fixed CV_xxx
 
     let basekey = Buffer.from(hsm.keystore[base_key_id].keydata, 'hex');
     let enckey: Buffer = Buffer.alloc(16);
