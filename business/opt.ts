@@ -13,6 +13,8 @@ import * as net from 'net';
 import * as Hsm from './hsm';
 import * as Util from './util';
 
+let traceNo = 0;
+
 export function optPreInitialize(): Promise<any> {
     return optProcess("K_UR", buildOptPreInitMsg);
 }
@@ -27,7 +29,7 @@ export function optPersonalize(): Promise<any> {
 
 function optProcess(base_key_id: string, msgBuilder: (isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any) => any): Promise<any> {
 
-    let traceNo = 1;
+    traceNo++;
     let isoPacker = new ISOBasePackager();
 
     isoPacker.setFieldPackager(OPT_ISO_MSG_FORMAT);
