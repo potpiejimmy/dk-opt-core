@@ -241,7 +241,7 @@ function buildOptInitMsg(isoPacker: ISOBasePackager, traceNo: number, config: an
     /* Initialisierungsanfrage */
     let isoMsg = isoPacker.createISOMsg();
     isoMsg.setMTI("8900"); /* MSGTYPE 8900 Anfrage */
-    isoMsg.setField(3, "989999"); /* AKZ     98xxxx Initialisierung, 99xxxx Personalisierung, xxxx = max. unterst. Nachrichtenlaenge */
+    isoMsg.setField(3, "984096"); /* AKZ     98xxxx Initialisierung, 99xxxx Personalisierung, xxxx = max. unterst. Nachrichtenlaenge */
     setOptCommonFields(isoMsg, traceNo, config);
     isoMsg.setField(33, "F0F3000000"); /* ID zwischengeschalteter Rechner */
     isoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.zkano); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), ZKA-No.(16) */
@@ -254,7 +254,7 @@ function buildOptPersMsg(isoPacker: ISOBasePackager, traceNo: number, config: an
     
     /* Personalisierungsanfrage (wie Initialisierungsanfrage, bis auf AKZ) */
     let isoMsg = buildOptInitMsg(isoPacker, traceNo, config, rnd_mes, rnd_mac, key);
-    isoMsg.setField(3, "999999"); /* AKZ     98xxxx Initialisierung, 99xxxx Personalisierung, xxxx = max. unterst. Nachrichtenlaenge */
+    isoMsg.setField(3, "994096"); /* AKZ     98xxxx Initialisierung, 99xxxx Personalisierung, xxxx = max. unterst. Nachrichtenlaenge */
     return isoMsg;
 }
 
