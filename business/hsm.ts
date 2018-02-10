@@ -85,7 +85,10 @@ export function importLDIGroup(data: Buffer): Promise<string> {
     let groupMac = data.slice(data.length-8, data.length).toString('hex');
     return verifyMAC("MAC", [...data.slice(0, data.length-8)], groupMac).then(macOk => {
 
-        if (!macOk) throw "Gruppen-MAC ungültig";
+        if (!macOk) {
+            console.log("Group MAC is invalid, aborting import.");
+            throw "Gruppen-MAC ungültig. Abbruch.";
+        }
 
         let index = 0;
         let groupIdAndVersion = data.slice(index,index+=3).toString('hex').toUpperCase();
@@ -108,14 +111,16 @@ export function importLDIGroup(data: Buffer): Promise<string> {
             console.log("Daten:            " + ldiData.toString('hex'));
             let ldiDataComplete = data.slice(index-ldiLen-3,index);
 
+            if (ldi == 0x00) {
+                // Standard-LDI, dieser muss beim Export mit MAC zurueckgegeben werden koennen
+                let hsmData = readHSM();
+                hsmData.keystore.STD_LDIS[groupIdAndVersion] = Buffer.from(ldiDataComplete).toString('hex');
+                writeHSM(hsmData);
+            }
+
+            // Daten der Vor-Initialisierung und Initialisierung
             if (groupIdAndVersion == 'FFFF00') {
-                // Daten der Vor-Initialisierung und Initialisierung
-                if (ldi == 0x00) {
-                    // Standard-LDI, dieser muss zurueckgegeben werden koennen
-                    let hsmData = readHSM();
-                    hsmData.keystore.STD_LDIS[groupIdAndVersion] = Buffer.from(ldiDataComplete).toString('hex');
-                    writeHSM(hsmData);
-                } else if (ldi == 0xFD) {
+                if (ldi == 0xFD) {
                     // Schluesselkennung 49=K_INIT, 50=K_PERS
                     if (ldiData[0] == 0x49) keyName = "K_INIT";
                     else if (ldiData[0] == 0x50) keyName = "K_PERS";
@@ -138,6 +143,7 @@ export function importLDIGroup(data: Buffer): Promise<string> {
 
 export function exportStandardLDI(groupIdAndVersion: string): Promise<Array<any>> {
     let stdldidata = readHSM().keystore.STD_LDIS[groupIdAndVersion];
+    if (!stdldidata) return Promise.resolve(null); // not found, return null
     let stdldiComplete = Buffer.concat([Buffer.from(groupIdAndVersion,'hex'),Buffer.from(stdldidata, 'hex')]) ;
     // add MAC:
     return createMAC("MAC'", [...stdldiComplete]).then(mac => [...stdldiComplete, ...Buffer.from(mac, 'hex')])

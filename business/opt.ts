@@ -206,13 +206,19 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
                     // the newly created K_PERS on Initialisierung.
                     return Hsm.importSessionKey("MAC'", "K_PERS", rnd_mac).then(() => 
                            Hsm.exportStandardLDI(groupIdAndVersion).then(stldiWithMac => {
-                        // add to bmp62result
-                        bmp62result = bmp62result.concat(stldiWithMac);
+                        if (stldiWithMac) {
+                            // add to bmp62result
+                            bmp62result = bmp62result.concat(stldiWithMac);
+                        } else {
+                            // LDI group not imported, decrease num field
+                            bmp62result[0]--;
+                            console.log("LDI group not imported: " + groupIdAndVersion);
+                        }
                     }));
                 }
             });
         })).then(() => {
-            if (rnd_mac) {
+            if (rnd_mac && bmp62result[0]) { // if at least 1 group imported
                 // return the new BMP62 with the MACed standard LDIs of all groups
                 let newLenField = Util.asciiToEbcdic(Util.padNumber(bmp62result.length, 3)); // 3 digits length field in EBCDIC
                 return [...newLenField].concat(bmp62result);
