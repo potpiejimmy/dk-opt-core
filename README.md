@@ -34,7 +34,7 @@ für Entwicklung mit nodemon-Autorestart.
 
 ## Web UI
 
-Siehe [_dk_opt_ui_](../../../dk-opt-ui)
+Siehe [_dk_opt_ui_](../../dk-opt-ui)
 
 ## To Do
 
