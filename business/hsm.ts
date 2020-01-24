@@ -76,7 +76,7 @@ export function createMAC(id: string, msg: Array<any>): Promise<string> {
 
 export function verifyMAC(id: string, msg: Array<any>, mac: string): Promise<boolean> {
     // verify mac for given message
-    return createMAC(id, msg).then(m =>  m==mac);
+    return createMAC(id, msg).then(m =>  m==mac || m.substr(0,8)==mac.substr(0,8)); // XXX Why does PSSIM.EXE send incomplete group mac? last 4 bytes are 00
 }
 
 export function importLDIGroup(data: Buffer): Promise<string> {
@@ -118,8 +118,8 @@ export function importLDIGroup(data: Buffer): Promise<string> {
                 writeHSM(hsmData);
             }
 
-            // Daten der Vor-Initialisierung und Initialisierung
             if (groupIdAndVersion == 'FFFF00') {
+                // Daten der Vor-Initialisierung und Initialisierung
                 if (ldi == 0xFD) {
                     // Schluesselkennung 49=K_INIT, 50=K_PERS
                     if (ldiData[0] == 0x49) keyName = "K_INIT";
@@ -134,6 +134,30 @@ export function importLDIGroup(data: Buffer): Promise<string> {
                     let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
                     let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
                     deriveKeyImpl(keyName, "KS_IMP", encK, cv, keyProperties);
+                }
+            } else {
+                // Daten der Personalisierung
+                if (ldi == 0x01) {
+                    // Schluesselkennung
+                    let kn = ldiData.slice(0,5).toString('hex').toUpperCase();
+                    if (kn == 'E900000001') kn = "CASH";
+                    else if (kn == 'E900000004') kn = "GK";
+                    switch (ldiData[5]) { // Zusatzkennung
+                        case 0x01: kn += "_MAC"; break;
+                        case 0x02: kn += "_PAC"; break;
+                        case 0x03: kn += "_PACMAC"; break;
+                        default: kn += "_" + ldiData[5];
+                    }
+                    keyName = "K_" + kn;
+                } else if (ldi == 0x02) {
+                    // Zusatzinformationen zum Schluessel
+                    keyProperties['N'] = ldiData[3]; // Schluesselnummer
+                    keyProperties['V'] = ldiData[4]; // Schluesselversion
+                } else if (ldi == 0x03) {
+                    // Kryptografischer Schluessel
+                    let encK = Buffer.from(ldiData.slice(0,16)).toString('hex');
+                    let cv = Buffer.from(ldiData.slice(16,32)).toString('hex');
+                    deriveKeyImpl(keyName, "KS_ENC", encK, cv, keyProperties);
                 }
             }
         }
