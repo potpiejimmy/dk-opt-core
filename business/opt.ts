@@ -16,14 +16,30 @@ import * as Util from './util';
 let traceNo = 0;
 
 export function optPreInitialize(): Promise<any> {
+    // Vor-Initialisierung
     return optProcess("K_UR", buildOptPreInitMsg);
 }
 
+export function optRegister(type: string): Promise<any> {
+    // Online-Registrierung mit type
+    //     'new':    Neu-Registrierung
+    //     'change': Aenderungs-Registrierung
+    //     'unreg':  Abmeldung
+    switch (type) {
+        case 'new':    return optProcess("K_REG", buildOptRegisterMsgNew);
+        case 'change': return optProcess("K_REG", buildOptRegisterMsgChange);
+        case 'unreg':  return optProcess("K_REG", buildOptRegisterMsgUnreg);
+    }
+    return 
+}
+
 export function optInitialize(): Promise<any> {
+    // Initialisierung
     return optProcess("K_INIT", buildOptInitMsg);
 }
 
 export function optPersonalize(): Promise<any> {
+    // Personalisierung
     return optProcess("K_PERS", buildOptPersMsg);
 }
 
@@ -239,6 +255,33 @@ function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config:
     isoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.herstellerid + config.herstellerserialno); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), Hersteller-ID (6), Hersteller-Seriennummer(10) */
     isoPacker.getFieldPackager(62).setLength(22);
     isoMsg.setField(62, "F0F1F9000000" + rnd_mac); /* Daten, Nummer logischer Teil-HSM (3) + RND_MAC (16) bei Vor-Initialisierung */
+    return isoMsg;
+}
+
+function buildOptRegisterMsgNew(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
+    return buildOptRegisterMsg(isoPacker, traceNo, config, rnd_mes, rnd_mac, key, "961010");
+}
+
+function buildOptRegisterMsgChange(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
+    return buildOptRegisterMsg(isoPacker, traceNo, config, rnd_mes, rnd_mac, key, "962010");
+}
+
+function buildOptRegisterMsgUnreg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
+    return buildOptRegisterMsg(isoPacker, traceNo, config, rnd_mes, rnd_mac, key, "963010");
+}
+
+function buildOptRegisterMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any, akz: string): any {
+    
+    /* Neu/Aenderungs-Registrierung oder Abmeldung*/
+    let isoMsg = isoPacker.createISOMsg();
+    isoMsg.setMTI("8900"); /* MSGTYPE 8900 Anfrage */
+    isoMsg.setField(3, akz); /* AKZ je nach Typ */
+    setOptCommonFields(isoMsg, traceNo, config);
+    isoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.betreiberid + "00000000000000000000"); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), Betreiber-ID (6), Filler 00..00 (10) */
+
+    // XXX TODO: Set BMP62
+    // isoPacker.getFieldPackager(62).setLength(22);
+    // isoMsg.setField(62, "F0F1F9000000" + rnd_mac); /* Daten, Nummer logischer Teil-HSM (3) + RND_MAC (16) bei Vor-Initialisierung */
     return isoMsg;
 }
 

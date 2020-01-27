@@ -17,6 +17,12 @@ OptRouter.get("/preinit", function (request: Request, response: Response, next: 
     .catch(err => next(err));
 });
 
+OptRouter.get("/register", function (request: Request, response: Response, next: NextFunction) {
+    Opt.optRegister(request.query.type)
+    .then(res => response.json(res))
+    .catch(err => next(err));
+});
+
 OptRouter.get("/init", function (request: Request, response: Response, next: NextFunction) {
     Opt.optInitialize()
     .then(res => response.json(res))
