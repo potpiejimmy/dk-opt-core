@@ -6,6 +6,8 @@ Der derzeitige Implementierung unterstützt die Spezifikation gemäß der ZKA-Vo
 - Vor-Initialisierung
 - Initialisierung
 - Personalisierung
+- Außerbetriebnahme
+- (Neu/Änderungs-)Registrierung und Abmeldung
 
 unterstützt.
 
@@ -41,4 +43,3 @@ Siehe [_dk_opt_ui_](../../dk-opt-ui)
 1. Chaining-Support
 2. Tracenummern / genaue Abläufe gem. Kap. 7 OPT-Spec, AC-Handling
 3. Dechiffrierung von Nicht-Schlüssel-LDI-Daten mit KS_ENC
-4. Außerbetriebnahme

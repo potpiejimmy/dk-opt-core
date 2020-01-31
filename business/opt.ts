@@ -20,6 +20,11 @@ export function optPreInitialize(): Promise<any> {
     return optProcess("K_UR", buildOptPreInitMsg);
 }
 
+export function optOutOfOrder(): Promise<any> {
+    // Ausserbetriebnahme
+    return optProcess("K_UR", buildOptOutOfOrderMsg);
+}
+
 export function optRegister(type: string): Promise<any> {
     // Online-Registrierung mit type
     //     'new':    Neu-Registrierung
@@ -114,6 +119,7 @@ function sendAndReceive(msg: Array<any>, isoMsg: any, config: any, base_key_id: 
 }
 
 function fixResultFieldVariableLength(bmp: number, len_length: number, isoPacker: ISOBasePackager, isoMessage: any, data: Buffer) {
+    if (!isoMessage.fields[bmp]) return; // BMP not present
     // fetch length from length field
     let bmp_len = parseInt(Util.ebcdicToAscii(Buffer.from(isoMessage.fields[bmp].value.slice(0,len_length))));
     //console.log("LEN BMP"+bmp + ": " + bmp_len);
@@ -159,9 +165,11 @@ function handleISOResponse(base_key_id: string, isoPacker: ISOBasePackager, data
 
         let result = Promise.resolve();
 
-        // OZP entnehmen und speichern
-        let ozp = isoAnswer.fields[61].value.slice(3,10);
-        result = result.then(() => Hsm.writeAdminValue("ozp", Buffer.from(ozp).toString('hex')));
+        // OZP entnehmen und speichern (wenn enthalten)
+        if (isoAnswer.fields[61]) {
+            let ozp = isoAnswer.fields[61].value.slice(3,10);
+            result = result.then(() => Hsm.writeAdminValue("ozp", Buffer.from(ozp).toString('hex')));
+        }
 
         if (ac) {
             // TODO: handle ACs
@@ -255,6 +263,20 @@ function buildOptPreInitMsg(isoPacker: ISOBasePackager, traceNo: number, config:
     isoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.herstellerid + config.herstellerserialno); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), Hersteller-ID (6), Hersteller-Seriennummer(10) */
     isoPacker.getFieldPackager(62).setLength(22);
     isoMsg.setField(62, "F0F1F9000000" + rnd_mac); /* Daten, Nummer logischer Teil-HSM (3) + RND_MAC (16) bei Vor-Initialisierung */
+    return isoMsg;
+}
+
+function buildOptOutOfOrderMsg(isoPacker: ISOBasePackager, traceNo: number, config: any, rnd_mes: string, rnd_mac: string, key: any): any {
+    
+    /* Ausserbetriebnahme */
+    let isoMsg = isoPacker.createISOMsg();
+    isoMsg.setMTI("8900"); /* MSGTYPE 8900 Anfrage */
+    isoMsg.setField(3, "964010"); /* AKZ 964010 fix */
+    setOptCommonFields(isoMsg, traceNo, config);
+    isoMsg.setField(57, "F0F3F4" + Util.padNumber(key.GN, 2) + Util.padNumber(key.KV, 2) + rnd_mes + config.herstellerid + config.herstellerserialno); /* Lg 034: Schluesselgenerationsnummer GN(1), Schluessel-Version KV(1), Zufallszahl RND_MES(16), Hersteller-ID (6), Hersteller-Seriennummer(10) */
+    isoMsg.setField(61, null); /* kein Onlinezeitpunkt bei Ausserbetriebnahme */
+    isoPacker.getFieldPackager(62).setLength(22);
+    isoMsg.setField(62, "F0F1F9000000" + config.zkano); /* Daten, Nummer logischer Teil-HSM (3) + ZKA-Nummer (16) bei Ausserbetriebnahme */
     return isoMsg;
 }
 
