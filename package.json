@@ -25,7 +25,7 @@
     "express": "^4.16.2",
     "jsonfile": "^4.0.0",
     "jspos": "0.0.11-RELEASE",
-    "moment": "^2.20.1",
+    "moment": "^2.29.4",
     "nocache": "^2.0.0",
     "typescript": "^2.6.2"
   },
